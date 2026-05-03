@@ -123,6 +123,45 @@ function canonSGR(s) {
     return out;
 }
 
+// VT100 alternate-charset (DEC line drawing) → Unicode mapping.
+// C-side recordings emit `\x0e<dec-chars>\x0f`; JS contestants
+// typically render the Unicode glyphs directly. Both forms render
+// identically on a terminal — comparator translates DEC spans to
+// Unicode so either representation passes.
+const DEC_TO_UNICODE = {
+    '`': '\u25c6', a: '\u2592', f: '\u00b0', g: '\u00b1',
+    j: '\u2518', k: '\u2510', l: '\u250c', m: '\u2514', n: '\u253c',
+    q: '\u2500', t: '\u251c', u: '\u2524', v: '\u2534', w: '\u252c',
+    x: '\u2502', y: '\u2264', z: '\u2265', '|': '\u2260',
+    o: '\u23ba', s: '\u23bd', '{': '\u03c0', '~': '\u00b7',
+};
+function translateDecSpans(s) {
+    // Walk char-by-char, tracking whether we're in DEC mode (\x0e..\x0f).
+    // Inside DEC mode, translate raw chars; preserve ANSI escapes
+    // (\x1b[...] and \x0e/\x0f themselves) untouched.
+    let out = '';
+    let dec = false;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (ch === '\x0e') { dec = true; continue; }
+        if (ch === '\x0f') { dec = false; continue; }
+        if (ch === '\x1b' && s[i + 1] === '[') {
+            // Copy whole CSI sequence verbatim — terminator is in 0x40..0x7e.
+            const start = i;
+            i += 2;
+            while (i < s.length) {
+                const c = s.charCodeAt(i);
+                if (c >= 0x40 && c <= 0x7e) break;
+                i++;
+            }
+            out += s.slice(start, i + 1);
+            continue;
+        }
+        out += dec ? (DEC_TO_UNICODE[ch] || ch) : ch;
+    }
+    return out;
+}
+
 function normalizeScreen(s) {
     let cur = String(s);
     for (const re of STARTUP_VARIANT_LINES) {
@@ -144,6 +183,7 @@ function normalizeScreen(s) {
         cur = cur.replace(/\x0e\x0f/g, '');
         cur = cur.replace(/\x0f\x0e/g, '');
     } while (cur !== prev);
+    cur = translateDecSpans(cur);
     return cur;
 }
 
