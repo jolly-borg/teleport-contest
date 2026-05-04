@@ -10,17 +10,21 @@ import { mklev, l_nhcore_init, u_on_upstairs } from './mklev.js';
 import { rhack } from './cmd.js';
 import { docrt, cls, bot, flush_screen, pline, set_screen_override, clear_screen_override } from './display.js';
 import { vision_recalc, vision_reset, init_vision_globals } from './vision.js';
-import { fastforward_pre_mklev, fastforward_post_mklev, fastforward_step, fastforward_fill_mineralize } from './fastforward.js';
+import { fastforward_pre_mklev, fastforward_step, fastforward_fill_mineralize } from './fastforward.js';
 import { buildLegacyText } from './chargen.js';
 import { nhgetch } from './input.js';
+import { u_init_misc, u_init_inventory_attrs } from './u_init.js';
 
 // C ref: allmain.c newgame()
 export async function newgame() {
     const g = game;
 
     // Fast-forward through pre-mklev startup RNG calls.
-    // Covers: o_init (shuffles), dungeon init, u_init_misc.
+    // Covers: o_init (shuffles), dungeon init.
     fastforward_pre_mklev();
+
+    // Basic player init (role/race chosen in chargen).
+    u_init_misc();
 
     // C ref: allmain.c l_nhcore_init() — shuffle align[] for Lua
     // Consumes rn2(3), rn2(2) matching session indices 309-310
@@ -44,19 +48,9 @@ export async function newgame() {
     // These create objects/monsters that don't affect terrain display
     fastforward_fill_mineralize();
 
-    // Fast-forward through post-mklev startup RNG calls.
-    // Covers: u_init_role, ini_inv, attributes, moveloop_preamble.
-    fastforward_post_mklev();
+    // Initialize inventory-derived attributes and basic stats.
+    u_init_inventory_attrs();
 
-    // Placeholder player state until u_init is fully ported.
-    // Keep seed8000 Tourist values if unset to preserve baseline behavior.
-    g._goldCount = g._goldCount ?? 757;
-    g.u.ulevel = g.u.ulevel ?? 1;
-    g.u.uhp = g.u.uhp ?? 10; g.u.uhpmax = g.u.uhpmax ?? 10;
-    g.u.uen = g.u.uen ?? 2; g.u.uenmax = g.u.uenmax ?? 2;
-    g.u.uac = g.u.uac ?? 10; g.u.uexp = g.u.uexp ?? 0;
-    g.u.acurr = g.u.acurr ?? { a: [9, 14, 12, 11, 16, 16] };
-    g.u.amax = g.u.amax ?? { a: [9, 14, 12, 11, 16, 16] };
     g.moves = g.moves ?? 1;
     g.plname = g.plname || 'Contestant';
 

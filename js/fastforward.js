@@ -113,8 +113,6 @@ export function fastforward_pre_mklev() {
     rn2(1); rn2(1);
     // init_castle_tune
     rn2(7); rn2(7); rn2(7); rn2(7); rn2(7);
-    // u_init_misc
-    rn2(10);
 }
 
 // Post-mklev startup: u_init_role, ini_inv, attributes, moveloop_preamble
