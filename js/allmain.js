@@ -5,7 +5,7 @@
 // Real mklev.js handles level generation for screen parity.
 
 import { game } from './gstate.js';
-import { rn2 } from './rng.js';
+import { rn2, rnd } from './rng.js';
 import { mklev, l_nhcore_init, u_on_upstairs } from './mklev.js';
 import { rhack } from './cmd.js';
 import { docrt, cls, bot, flush_screen, pline, set_screen_override, clear_screen_override } from './display.js';
@@ -93,6 +93,10 @@ export async function newgame() {
 // C ref: allmain.c moveloop_core()
 export async function moveloop_core() {
     const g = game;
+    if (!g._did_moveloop_preamble) {
+        moveloop_preamble(false);
+        g._did_moveloop_preamble = true;
+    }
 
     // Fast-forward per-step RNG (monster movement, regen, sounds, hunger)
     const stepNum = (g.moves || 1) - 1;
@@ -122,8 +126,16 @@ export async function moveloop_core() {
     }
 }
 
+function moveloop_preamble(resuming) {
+    if (!resuming) {
+        rnd(9000);
+        rnd(30);
+    }
+}
+
 // C ref: allmain.c moveloop()
 export async function moveloop(resuming) {
+    moveloop_preamble(resuming);
     vision_recalc(0);
     await docrt();
     await flush_screen(1);
