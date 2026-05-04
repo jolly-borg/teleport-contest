@@ -8,9 +8,11 @@ import { game } from './gstate.js';
 import { rn2 } from './rng.js';
 import { mklev, l_nhcore_init, u_on_upstairs } from './mklev.js';
 import { rhack } from './cmd.js';
-import { docrt, cls, bot, flush_screen, pline } from './display.js';
+import { docrt, cls, bot, flush_screen, pline, set_screen_override, clear_screen_override } from './display.js';
 import { vision_recalc, vision_reset, init_vision_globals } from './vision.js';
 import { fastforward_pre_mklev, fastforward_post_mklev, fastforward_step, fastforward_fill_mineralize } from './fastforward.js';
+import { buildLegacyText } from './chargen.js';
+import { nhgetch } from './input.js';
 
 // C ref: allmain.c newgame()
 export async function newgame() {
@@ -46,20 +48,16 @@ export async function newgame() {
     // Covers: u_init_role, ini_inv, attributes, moveloop_preamble.
     fastforward_post_mklev();
 
-    // Hardcoded player state for seed8000 Tourist.
-    // Contestants: port u_init to compute these from game PRNG.
-    g._goldCount = 757;
-    g.u.ulevel = 1;
-    g.u.uhp = 10; g.u.uhpmax = 10;
-    g.u.uen = 2; g.u.uenmax = 2;
-    g.u.uac = 10; g.u.uexp = 0;
-    g.u.ualign = { type: 0, record: 0 };
-    g.u.acurr = { a: [9, 14, 12, 11, 16, 16] };
-    g.u.amax = { a: [9, 14, 12, 11, 16, 16] };
-    g.moves = 1;
-    g.urole = { name: { m: 'Tourist', f: 'Tourist' }, rank: { m: 'Rambler', f: 'Rambler' } };
-    g.urace = { adj: 'human' };
-    g.flags.female = true;
+    // Placeholder player state until u_init is fully ported.
+    // Keep seed8000 Tourist values if unset to preserve baseline behavior.
+    g._goldCount = g._goldCount ?? 757;
+    g.u.ulevel = g.u.ulevel ?? 1;
+    g.u.uhp = g.u.uhp ?? 10; g.u.uhpmax = g.u.uhpmax ?? 10;
+    g.u.uen = g.u.uen ?? 2; g.u.uenmax = g.u.uenmax ?? 2;
+    g.u.uac = g.u.uac ?? 10; g.u.uexp = g.u.uexp ?? 0;
+    g.u.acurr = g.u.acurr ?? { a: [9, 14, 12, 11, 16, 16] };
+    g.u.amax = g.u.amax ?? { a: [9, 14, 12, 11, 16, 16] };
+    g.moves = g.moves ?? 1;
     g.plname = g.plname || 'Contestant';
 
     // C ref: allmain.c newgame() → u_on_upstairs()
@@ -75,10 +73,26 @@ export async function newgame() {
     await flush_screen(1);
     await bot();
 
+    if (g.flags?.legacy) {
+        set_screen_override(buildLegacyText().join('\n'));
+        await flush_screen(1);
+        await nhgetch();
+        clear_screen_override();
+    }
+
     // Welcome message
-    const alignName = 'neutral';
+    const alignName =
+        g.u?.ualign?.type === 0 ? 'neutral' : g.u?.ualign?.type > 0 ? 'lawful' : 'chaotic';
     const genderAdj = g.flags?.female ? 'female' : 'male';
-    await pline(`Aloha ${g.plname}, welcome to NetHack!  You are a ${alignName} ${genderAdj} human ${g.urole.name.m}.`);
+    const raceAdj = g.urace?.adj || 'human';
+    const roleName = g.urole?.name?.m || 'Adventurer';
+    const hello =
+        roleName === 'Tourist' ? 'Aloha' :
+        roleName === 'Knight' ? 'Salutations' :
+        roleName === 'Samurai' ? 'Konnichi wa' :
+        roleName === 'Valkyrie' ? 'Velkommen' :
+        'Hello';
+    await pline(`${hello} ${g.plname}, welcome to NetHack!  You are a ${alignName} ${genderAdj} ${raceAdj} ${roleName}.`);
 }
 
 // C ref: allmain.c moveloop_core()

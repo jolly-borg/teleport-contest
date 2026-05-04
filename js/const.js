@@ -1339,6 +1339,17 @@ export const ROLE_GENDMASK = 0xf000;
 export const ROLE_MALE = 0x1000;
 export const ROLE_FEMALE = 0x2000;
 export const ROLE_NEUTER = 0x4000;
+// Race masks (monflag.h M2_* -> MH_* aliases) used by role/race allow rules.
+export const M2_HUMAN = 0x00000008;
+export const M2_ELF = 0x00000010;
+export const M2_DWARF = 0x00000020;
+export const M2_GNOME = 0x00000040;
+export const M2_ORC = 0x00000080;
+export const MH_HUMAN = M2_HUMAN;
+export const MH_ELF = M2_ELF;
+export const MH_DWARF = M2_DWARF;
+export const MH_GNOME = M2_GNOME;
+export const MH_ORC = M2_ORC;
 export const ROLE_ALIGNMASK = AM_MASK;
 export const ROLE_LAWFUL = AM_LAWFUL;
 export const ROLE_NEUTRAL = AM_NEUTRAL;

@@ -16,6 +16,7 @@ import { newgame, moveloop_core } from './allmain.js';
 import { parseNethackrc } from './options.js';
 import { flush_screen } from './display.js';
 import { GameDisplay } from './game_display.js';
+import { player_selection } from './chargen.js';
 
 // ── NethackGame ──
 // Wraps a single game session with replay infrastructure.
@@ -36,9 +37,9 @@ export class NethackGame {
 
         // Parse nethackrc
         const opts = parseNethackrc(this._nethackrc);
-        g.plname = opts.name || 'Hero';
-        g.flags = { verbose: true, ...opts.flags };
-        g.iflags = { ...opts.iflags };
+        g.plname = opts.name || '';
+        g.flags = { verbose: true, legacy: true, tutorial: true, randomall: false, ...opts.flags };
+        g.iflags = { wc_splash_screen: true, ...opts.iflags };
         if (opts.preferred_pet) g.preferred_pet = opts.preferred_pet;
         if (opts.tutorial_set) g.tutorial_set_in_config = true;
 
@@ -47,10 +48,6 @@ export class NethackGame {
         g.context = { move: 0 };
         g.program_state = {};
         g.moves = 1;
-
-        // TODO: Map role/race/gender/align from opts to role data
-        g.urole = { name: { m: 'Rambler', f: 'Rambler' } };
-        g.urace = { adj: 'human' };
 
         // Initialize PRNG
         initRng(this._seed);
@@ -64,6 +61,9 @@ export class NethackGame {
 
         // Install capture hook
         this._installCaptureHook();
+
+        // Role/race/gender/align selection
+        await player_selection(opts);
 
         // Run game startup
         await newgame();

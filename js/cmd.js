@@ -15,6 +15,7 @@ import {
     clear_screen_override,
 } from './display.js';
 import { vision_recalc } from './vision.js';
+import { rank_of } from './roles.js';
 import {
     STONE,
     DOOR,
@@ -38,7 +39,7 @@ function isMovementKey(ch) {
 function statusLine1() {
     const u = game.u || {};
     const name = game.plname || 'Hero';
-    const role = game.urole?.rank?.m || game.urole?.name?.m || 'Adventurer';
+    const role = game.urole ? rank_of(game.urole, u.ulevel || 1, game.flags?.female) : 'Adventurer';
     const title = `${name} the ${role}`;
     const stats =
         `St:${u.acurr?.a?.[0] ?? '?'} Dx:${u.acurr?.a?.[1] ?? '?'} ` +
@@ -118,7 +119,7 @@ function openAttributesPage1() {
         ` ${game.plname || 'Hero'} the Tourist's attributes:`,
         '',
         ' Background:',
-        `  You are a Rambler, a level ${game.u?.ulevel || 1} female human Tourist.`,
+        `  You are a ${rank_of(game.urole || { rank: [{ m: 'Adventurer', f: 'Adventurer' }] }, game.u?.ulevel || 1, game.flags?.female)}, a level ${game.u?.ulevel || 1} ${game.flags?.female ? 'female' : 'male'} ${game.urace?.adj || 'human'} ${game.urole?.name?.m || 'Adventurer'}.`,
         '  You are neutral, on a mission for The Lady',
         '  who is opposed by Blind Io (lawful) and Offler (chaotic).',
         '  You are left-handed.',
