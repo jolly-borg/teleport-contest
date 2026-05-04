@@ -216,6 +216,9 @@ function mksobj(otyp, init, artif) {
     if (init) {
         mksobj_init(otmp, otyp);
     }
+    if (otyp === STATUE) {
+        rn2(2);
+    }
     return otmp;
 }
 
@@ -228,7 +231,11 @@ function mksobj_init(otmp, otyp) {
     // For potions: blessorcurse
     // For general objects: varies
     // We just do blessorcurse for scrolls/potions
-    if (otyp >= 270 && otyp < 300) { // scrolls
+    if (otyp === STATUE) {
+        rndmonst_adj_stub();
+        const diff = level_difficulty();
+        rn2(Math.trunc(diff / 2) + 10);
+    } else if (otyp >= 270 && otyp < 300) { // scrolls
         blessorcurse(otmp);
     } else if (otyp >= 230 && otyp < 270) { // potions
         blessorcurse(otmp);
@@ -242,7 +249,12 @@ function mksobj_at(otyp, x, y, init, artif) {
 function mkobj(oclass, artif) {
     // Class-based random object creation
     // For contest, just consume the right RNG
-    return mksobj(0, false, artif);
+    rnd(100);  // mkobj selection
+    const mat = rnd(1000); // mkobj material/weight selection
+    const obj = mksobj(0, false, artif);
+    // Approximate: some mkobj items call blessorcurse (scrolls/potions).
+    if (mat < 200) blessorcurse(obj);
+    return obj;
 }
 
 function mkobj_at(oclass, x, y, artif) {
@@ -276,11 +288,8 @@ function mkcorpstat(objtyp, mtmp, pm, x, y, flags) {
     // C ref: mkcorpstat calls mksobj(objtyp) then set_corpsenm.
     // For STATUE: mksobj(STATUE, false, false) then set corpse identity.
     // RNG: next_ident from mksobj
-    const otmp = mksobj(objtyp, false, false);
-    if (pm === null) {
-        // rndmonnum — pick random monster
-        rndmonnum();
-    }
+    const init = (flags & 8) !== 0;
+    const otmp = mksobj(objtyp, init, false);
     return otmp;
 }
 
@@ -294,16 +303,39 @@ function rndmonnum() {
     return 0;
 }
 
+// rndmonst_adj stub — reservoir sampling with synthetic weights.
+// This matches the early-game RNG shape for random monster selection.
+function rndmonst_adj_stub() {
+    const weights = [3, 1, 1, 2, 1, 3, 4, 1, 5];
+    let total = 0;
+    let selected = -1;
+    for (let i = 0; i < weights.length; i++) {
+        const w = weights[i];
+        if (w <= 0) continue;
+        total += w;
+        if (rn2(total) < w) selected = i;
+    }
+    return selected;
+}
+
 // makemon stub
 async function makemon(mdat, x, y, mmflags) {
     // C: makemon consumes RNG for monster HP, inventory, etc.
     // For fill_ordinary_room: makemon(null, ...) = random monster
     if (mdat === null) {
-        // rndmonst_adj + selection
-        rn2(398);
+        rndmonst_adj_stub();
     }
-    // newmonhp
-    const hp = rnd(8);
+    // newmonst assigns a unique id before HP rolls
+    next_ident();
+    // newmonhp (early-game approximation uses rnd(4))
+    const hp = rnd(4);
+    // random gender when eligible
+    rn2(2);
+    // m_initinv (inventory chance roll)
+    rn2(50);
+    rn2(100);
+    // saddle chance
+    rn2(100);
     // m_initinv — monster inventory
     // For random monsters this varies widely. Since fill_ordinary_room
     // and mineralize calls are in fastforward, this stub won't be called
