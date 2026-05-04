@@ -2,6 +2,7 @@
 // C ref: u_init.c (trobj tables + u_init_role) and mkobj.c (weapon init RNG).
 
 import { rn2, rnd, rne } from './rng.js';
+import { game } from './gstate.js';
 
 function consume_next_ident() {
     rnd(2);
@@ -141,6 +142,25 @@ function consume_gem_init(otyp) {
 
 function consume_bless_or_curse(chance) {
     if (!rn2(chance)) rn2(2);
+}
+
+function consume_mkobj_erosions_stub() {
+    if ((game?.moves ?? 0) <= 1 && !game?.in_mklev) return;
+    if (rn2(100) !== 0) {
+        if (rn2(80) === 0) {
+            let eroded = 0;
+            do {
+                eroded++;
+            } while (eroded < 3 && rn2(9) === 0);
+        }
+        if (rn2(80) === 0) {
+            let eroded2 = 0;
+            do {
+                eroded2++;
+            } while (eroded2 < 3 && rn2(9) === 0);
+        }
+    }
+    rn2(1000);
 }
 
 function consume_potion_scroll_init() {
@@ -355,6 +375,7 @@ export function consume_role_inventory_rng(roleName) {
             } else if (item.class === 'random' && item.oclass === 'spellbook') {
                 consume_spellbook_init();
             }
+            consume_mkobj_erosions_stub();
         }
         if (item.class === 'weapon' || item.class === 'tool') {
             consume_trquan(item);
@@ -408,6 +429,7 @@ export function consume_role_extras_rng(roleName) {
 }
 
 export function consume_money_rng() {
-    rn2(1);
+    consume_trquan({ qty: { min: 1, max: 1 } });
     consume_next_ident();
+    consume_mkobj_erosions_stub();
 }

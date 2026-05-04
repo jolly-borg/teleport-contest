@@ -57,7 +57,6 @@ export function d(n, x) {
 }
 
 // C ref: rne(x) — exponentially distributed
-// Internal rn2 calls are logged (matching C's PRNG log format).
 export function rne(x) {
     const ulevel = game.u?.ulevel || 1;
     const utmp = ulevel < 15 ? 5 : Math.trunc(ulevel / 3);
@@ -68,7 +67,6 @@ export function rne(x) {
 }
 
 // C ref: rnz(i) — fuzzy random around i
-// Internal rn2/rne calls are logged (matching C's PRNG log format).
 export function rnz(i) {
     let x = i;
     let tmp = 1000;

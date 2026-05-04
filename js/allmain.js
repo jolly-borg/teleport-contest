@@ -16,6 +16,7 @@ import { nhgetch } from './input.js';
 import { u_init_misc, u_init_inventory_attrs } from './u_init.js';
 import { init_dungeons } from './dungeon_init.js';
 import { init_objects } from './o_init.js';
+import { consume_pet_type_rng } from './pet.js';
 
 // C ref: allmain.c newgame()
 export async function newgame() {
@@ -43,6 +44,9 @@ export async function newgame() {
     // Real mklev generates the level with correct room positions
     // Structural phase consumes RNG for rooms/corridors/doors/stairs
     await mklev();
+
+    // Starting pet selection (makedog() / pet_type()).
+    consume_pet_type_rng();
 
     // Initialize inventory-derived attributes and basic stats.
     u_init_inventory_attrs();

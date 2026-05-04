@@ -1,141 +1,93 @@
 # Teleport Contest Submission Plan
 
-## Goal
-Maximize final contest performance, not just public-session score:
-- Get passing sessions quickly to build momentum.
-- Keep changes faithful to NetHack C so held-out sessions also pass.
-- Avoid brittle hacks that hurt Phase 2 (5.1 + diff penalty).
+## Goals
+- Fast track: make two recorded sessions pass as quickly as possible.
+- Best submission: maximize general correctness so held-out sessions pass without hacks.
+- Keep RNG consumption and call order aligned with NetHack C, not just screen output.
+
+## Constraints (Frozen Surfaces)
+- Never edit frozen infrastructure (`js/isaac64.js`, `js/terminal.js`, `frozen/*`).
+- README.md is frozen for this project. Do not edit it.
+- If any additional files are explicitly declared frozen by the user, treat them as read-only and call that out here.
 
 ## Baseline (measured on 2026-05-04)
-- `0/44` public sessions passing.
-- `seed8000-tourist-starter`: RNG `3102/3102`, Screen `4/22` (closest to passing).
-- All other sessions: Screen `0/*`; RNG diverges early-to-mid run.
-- Current code still relies on large `fastforward.js` replay scaffolding and many stubs.
+- `0/44` public sessions passing (last full score not re-run yet in this revision).
+- `seed8000-tourist-starter`: RNG `1458/3102`, Screen `0/22`.
+- `seed0077-rogue-chargen`: RNG `1606/3242`, Screen `11/33`.
 
-## Current Status (updated on 2026-05-04)
-- `1/44` public sessions passing.
-- `seed8000-tourist-starter` now passes fully (RNG + Screen).
-- Stage 1 objective achieved; next focus is Stage 2 startup/chargen generalization.
+## Reflection (Step Back)
+What is holding us back is still core startup/chargen + early level generation parity. The first mismatches are mostly:
+- Attribute/role/race/alignment initialization order.
+- Early mklev object/monster creation RNG ordering (`mkobj`, `makemon`, `rndmonst_adj`, `blessorcurse`).
+- Engraving/rumor text RNG consumption (`random_engraving`, `getrumor`, `wipeout_text`).
 
-## Non-Negotiable Strategy
-1. Port behavior from C, do not memorize sessions.
-2. Drive work by first mismatch in existing sessions.
-3. Prioritize shared foundations over isolated one-off features.
-4. Keep module boundaries close to upstream C files to reduce Phase 2 diff.
-5. Never edit frozen surfaces (`js/isaac64.js`, `js/terminal.js`, `frozen/*`) as part of feature work.
-   Treat any local edits to frozen files as accidental; revert them before commit.
-6. README.md is frozen for this project. Do not edit it.
+These are foundational and recur across sessions, so fixing them is the fastest path to both quick wins and strong final submission.
 
-## Execution Loop (for every milestone)
+## Two-Session Fast Track (Primary Objective)
+Target sessions:
+- `sessions/seed8000-tourist-starter.session.json`
+- `sessions/seed0077-rogue-chargen.session.json`
+
+### Step 1: Chargen and Stats Line Parity
+- Port the exact C call order for role/race/align selection, `u_init`, and `init_attr`/`vary_init_attr`.
+- Match `newhp`/`newpw` timing and `ulevel` transitions.
+- Confirm starting stats line matches C after the very first screen.
+
+### Step 2: Early mklev RNG Ordering
+- Align `fill_ordinary_room` RNG gates and `makemon`/`mktrap` ordering.
+- Implement `makemon` RNG consumption more precisely (gender, peacefulness, group size).
+- Ensure `rndmonst_adj` call sites are never skipped or reordered by JS stubs.
+
+### Step 3: Engraving/Rumor RNG
+- Implement `getrumor`/`get_rnd_line` and `wipeout_text` RNG sequences to match C.
+- Use real rumor data (`nethack-c/upstream/dat/rumors.tru`/`rumors.fal`) with padding logic.
+- Confirm RNG log matches expected `rn2(25762)` pattern and subsequent wipeouts.
+
+### Step 4: Tight Verification Loop
+- After each fix, run `node ai/scripts/first_mismatch.mjs` on both sessions.
+- Record a snapshot with `node ai/scripts/progress_snapshot.mjs`.
+
+Exit criteria:
+- Both sessions pass RNG + Screen end-to-end.
+
+## Best-Submission Plan (After the Two-Session Fast Track)
+Phase A: Startup parity
+- Replace startup fastforward with real `o_init`, dungeon init, inventory init, and `u_init` in exact C order.
+- Remove hand-tuned stubs once full implementations exist.
+
+Phase B: Core turn engine parity
+- Replace `fastforward_step` with real per-turn logic (movement, vision refresh, message timing).
+- Implement command dispatch and minimal core handlers used by sessions.
+
+Phase C: Worldgen depth
+- Complete `mklev`/`mkobj`/`makemon`/`mktrap` parity, special rooms, and post-processing hooks.
+- Implement save/restore behavior for multi-segment state.
+
+Phase D: Gameplay breadth
+- Commands: search, kick, eat, throw, read, zap, cast, extcmds.
+- Menu/prompt behavior and inventory management consistency.
+
+## Tooling, Tests, and Progress Monitoring
+- First-mismatch tooling: `ai/scripts/first_mismatch.mjs` (single session).
+- Progress snapshots: `ai/scripts/progress_snapshot.mjs` with `ai/progress_sessions.json`.
+- Unit tests: `node --test` for RNG, geometry, display, and utility helpers.
+- Keep tests small but strict; update expected values only with intentional changes.
+
+## Execution Loop (Every Milestone)
 1. Run targeted sessions only.
 2. Find first RNG mismatch and first screen mismatch.
 3. Port the exact C function(s) responsible.
 4. Re-run targeted sessions.
-5. Re-run full `bash frozen/score.sh` after each stable improvement.
-6. If scoring overlays touched frozen surfaces, restore them before staging or committing.
+5. Record a progress snapshot.
+6. Run full `bash frozen/score.sh` after stable improvements.
 
-## Session Ladder (fastest path to first passes)
-
-### Stage 1: First pass ASAP
-Target:
-- `seed8000-tourist-starter`
-
-Focus:
-- Fix screen parity/capture timing for startup + early movement.
-- Keep existing RNG parity intact while fixing display pipeline.
-
-Exit criteria:
-- `seed8000-tourist-starter` fully passes (P+S).
-
-### Stage 2: Remove startup hardcoding (high leverage)
-Targets:
-- `seed0077-rogue-chargen`
-- `seed0102-ranger-name-cancel`
-- `seed0101-ranger-quiver-throw-travel-engrave`
-
-Focus:
-- Replace `fastforward_pre_mklev` / `fastforward_post_mklev` with real startup/chargen flow.
-- Implement real role/race/gender/align handling from `nethackrc`.
-- Port init paths (`o_init`, dungeon init, `u_init`, inventory/attributes init) instead of replayed RNG calls.
-
-Exit criteria:
-- Chargen sessions produce matching RNG prefixes across multiple roles.
-- No startup RNG replay lists required.
-
-### Stage 3: Core turn engine + movement parity
-Targets:
-- `seed1500-rogue-explore-move`
-- `seed0900-tourist-explore-actions`
-- `seed1150-caveman-explore-move`
-- `seed0700-samurai-explore-descend`
-
-Focus:
-- Replace `fastforward_step` with real per-turn game logic.
-- Port movement blockers, door interactions, vision refresh, status/message timing.
-- Ensure frame capture happens exactly at each input boundary.
-
-Exit criteria:
-- Movement/exploration sessions begin passing without session-specific branches.
-
-### Stage 4: Command families by coverage
-Targets:
-- `seed0060-orc-rogue-kick-search`
-- `seed1800-tourist-eat-throw`
-- `seed2200-wizard-quaff-zap-read`
-- `seed0501-priest-cast-read-turn`
-- `seed0106-priest-extcmd-sweep`
-- `seed0108-wizard-extcmd-wishlist`
-
-Focus:
-- Port command dispatch and handlers (`rhack` family) in C order.
-- Implement inventory/menu/prompt behavior and command side effects.
-- Validate both RNG sequence and emitted messages/screens.
-
-Exit criteria:
-- At least one passing session per command family, then full family sweep.
-
-### Stage 5: World generation + advanced systems
-Targets:
-- Tour/coverage/hallucination/stress sessions (`seed0360+`, `seed0383`, `seed0399`, `seed4500`, `seed5002`, `seed5006`)
-
-Focus:
-- Replace remaining mklev/object/monster/trap stubs with faithful ports.
-- Implement display RNG and Lua RNG contexts where needed.
-- Handle multi-segment state (`save/restore`, bones chain cases).
-
-Exit criteria:
-- Public score climbs through long and high-coverage sessions.
-
-## Parallel Workstreams
-
-### A) Differential tooling
-- Add scripts that print first RNG mismatch index + call pair and first screen mismatch frame.
-- Track per-session progress snapshots to avoid regressions.
-
-### B) Port ledger
-- For each JS function, record upstream C source/function reference.
-- Mark status: `stub`, `partial`, `ported`, `verified`.
-- Use this ledger to choose next highest-leverage port work.
-
-### C) Regression gates
-- Fast gate: 3-5 representative sessions.
-- Medium gate: 10-15 varied sessions.
-- Full gate: all 44 public sessions before push.
-
-## Architectural Rules (to win Phase 2 too)
-- No seed/session conditionals in game logic.
-- Delete `fastforward.js` incrementally as real code lands.
-- Preserve deterministic ordering of RNG-relevant operations.
-- Prefer direct C-to-JS transliteration for critical subsystems first; refactor only after parity.
-- Treat frozen/overlay files as read-only and exclude them from feature edits.
-
-## Commit and Push Cadence
-1. Commit often, including partial progress commits even when no new sessions pass.
-2. Before every commit, verify this plan is still current; update `ai/PLAN.md` if priorities changed.
-3. Push only when at least one targeted session improved and gated regressions are clear.
-4. Maintain a changelog of which sessions/features each commit is intended to unlock.
+## Commit Cadence
+- Commit often, including partial progress commits.
+- Update this plan whenever priorities or constraints change.
+- Push only when at least one targeted session improves and regressions are understood.
 
 ## Immediate Next Actions
-1. Replace startup RNG replay with real chargen/init paths (`seed0077`, `seed0102` as primary checks).
-2. Use first-mismatch tooling on chargen-heavy sessions to identify the first real startup divergence.
-3. Start deleting `fastforward_pre_mklev` / `fastforward_post_mklev` calls as corresponding C init functions are ported.
+1. Fix chargen/stat initialization order and verify the stats line for Tourist/Rogue.
+2. Align `makemon` RNG consumption with C (gender/peace/group handling).
+3. Implement rumor text and `wipeout_text` RNG parity to unblock engraving mismatches.
+4. Re-run `ai/scripts/progress_snapshot.mjs` and update progress logs.
